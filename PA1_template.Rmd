@@ -2,17 +2,55 @@
 
 
 ## Loading and preprocessing the data
-
-
-
+Assessment data will be loaded directly from zip file:
+```{r}
+assessment.data <- read.csv(unzip("activity.zip", "activity.csv"))
+```
+Lets examine structure of crated data frame:
+```{r}
+str(assessment.data)
+```
+We can see that data type for **date** is *Factor*, and it probably should be *Date*. Let's adjust that:
+```{r}
+assessment.data$date <- as.Date(assessment.data$date)
+```
+Simple summary of readed data:
+```{r}
+summary(assessment.data)
+```
 ## What is mean total number of steps taken per day?
+Sum of steps for each day. Steps variable is **x**:
+```{r}
+total.steps.day <- aggregate.data.frame(x = assessment.data$steps, by = list(Date = assessment.data$date), sum)
+total.steps.day
+```
+Histogram:
+```{r}
+hist(total.steps.day$x)
+```
 
-
+Mean and median values:
+```{r}
+mean.steps <- mean(total.steps.day$x, na.rm = T)
+median.steps <- median(total.steps.day$x, na.rm = T)
+mean.steps
+median.steps
+```
 
 ## What is the average daily activity pattern?
-
-
-
+Lets load plotting library:
+```{r}
+library("ggplot2")
+```
+Sum of steps for each interval. Steps variable is **x**:
+```{r}
+total.steps.interval <- aggregate.data.frame(x = assessment.data$steps, by = list(Interval = assessment.data$interval), sum)
+total.steps.interval
+```
+Plot:
+```{r}
+ggplot()
+```
 ## Imputing missing values
 
 
