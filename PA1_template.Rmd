@@ -1,6 +1,5 @@
 # Reproducible Research: Peer Assessment 1
 
-
 ## Loading and preprocessing the data
 Assessment data will be loaded directly from zip file:
 ```{r}
@@ -14,19 +13,29 @@ We can see that data type for **date** is *Factor*, and it probably should be *D
 ```{r}
 assessment.data$date <- as.Date(assessment.data$date)
 ```
-Simple summary of readed data:
+Lets also convert interval to timestamp format. First, lets use strptime to extract timestamp:
+```{r}
+assessment.data$interval <- as.integer(as.POSIXct(strptime(
+  formatC(assessment.data$interval, width = 4, format = "d", flag = "0"), 
+  format = "%H%M")))
+```
+And then subtract first timestamp to have proper timing:
+```{r}
+assessment.data$interval <- assessment.data$interval - assessment.data$interval[1]
+```
+Simple summary of read data:
 ```{r}
 summary(assessment.data)
 ```
 ## What is mean total number of steps taken per day?
 Sum of steps for each day. Steps variable is **x**:
 ```{r}
-total.steps.day <- aggregate.data.frame(x = assessment.data$steps, by = list(Date = assessment.data$date), sum)
-total.steps.day
+total.steps.day <- aggregate.data.frame(x = assessment.data$steps, by = list(Date = assessment.data$date), sum, na.rm = TRUE)
+head(total.steps.day)
 ```
 Histogram:
 ```{r}
-hist(total.steps.day$x)
+hist(total.steps.day$x, main = "Histogram of total steps per day", xlab = "Sum of steps per day")
 ```
 
 Mean and median values:
@@ -42,17 +51,82 @@ Lets load plotting library:
 ```{r}
 library("ggplot2")
 ```
-Sum of steps for each interval. Steps variable is **x**:
+Average of steps for each interval. Steps variable is **x**:
 ```{r}
-total.steps.interval <- aggregate.data.frame(x = assessment.data$steps, by = list(Interval = assessment.data$interval), sum)
-total.steps.interval
+mean.steps.interval <- aggregate.data.frame(x = assessment.data$steps, by = list(Interval = assessment.data$interval), mean, na.rm = TRUE)
+head(mean.steps.interval)
 ```
 Plot:
 ```{r}
-ggplot()
+ggplot(mean.steps.interval, aes(Interval/3600,x)) + geom_line() 
+```
+
+Time interval which has highest average steps count:
+```{r}
+intense.time <- mean.steps.interval$Interval[which.max(mean.steps.interval$x)]
+format(as.POSIXct('0001-01-01 00:00:00') + intense.time, "%I:%M:%S %p") 
 ```
 ## Imputing missing values
+### Number of missing values:
+We know from previous summary, that column which can have NA's is column *steps*. So to know number of missing cases, we only need to examine NA's in *steps*:
+```{r}
+total.rows <- nrow(assessment.data)
+missing.rows <- sum(is.na(assessment.data$steps))
+percent.missing <- (missing.rows/total.rows)*100
+```
+Results are: we have `r total.rows` total rows, from which `r missing.rows` contains missing values - that is `r percent.missing` percent of all rows.
+### Filling missing values:
+I decided to fill missing values based on mean value for that time interval. For each missing value, its interval will be taken. For this interval, number of mean steps *x* will be taken from calculated previously *mean.steps.interval* data frame.
+### Creating new dataset with filled missing values
+```{r}
+new.data <- assessment.data
+for (i in which(is.na(new.data$steps))) {
+  new.data$steps[i] <- mean.steps.interval$x[mean.steps.interval$Interval == new.data$interval[i]]
+}
+head(new.data)
+```
+### Comparing with data containing NA
+I will run the same analytics like in second paragraph:
+Sum of steps for each day. Steps variable is **x**:
+```{r}
+total.steps.day <- aggregate.data.frame(x = new.data$steps, by = list(Date = new.data$date), sum)
+head(total.steps.day)
+```
+Histogram:
+```{r}
+hist(total.steps.day$x, main = "Histogram of total steps per day", xlab = "Sum of steps per day")
+```
 
-
-
+Mean and median values:
+```{r}
+mean.steps <- mean(total.steps.day$x)
+median.steps <- median(total.steps.day$x)
+mean.steps
+median.steps
+```
+After filling missing values, both mean and median are slightly higher.
 ## Are there differences in activity patterns between weekdays and weekends?
+### Adding new factor variable to dataset:
+```{r}
+Sys.setlocale(category = "LC_TIME", locale = "C") # fixing locales
+new.data$day <- weekdays(new.data$date)
+new.data$day <- ifelse(new.data$day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), "weekday", "weekend")
+
+```
+### Calculating separate means for weekend and weekdays:
+Aggregation method as previously. I will create two separated data frames with means for each day type and them merge them togeather:
+```{r}
+mean.steps.interval.weekend <- aggregate.data.frame(x = new.data$steps[new.data$day == "weekend"], by = list(Interval = new.data$interval[new.data$day == "weekend"]), mean)
+head(mean.steps.interval.weekend)
+
+mean.steps.interval.weekday <- aggregate.data.frame(x = new.data$steps[new.data$day == "weekday"], by = list(Interval = new.data$interval[new.data$day == "weekday"]), mean)
+head(mean.steps.interval.weekday)
+merged.mean.steps <- merge(mean.steps.interval.weekday, mean.steps.interval.weekend, by = "Interval")
+names(merged.mean.steps) <- c("interval", "weekday", "weekend")
+```
+Plotting:
+```{r}
+par(mfrow=c(2,1))
+plot(merged.mean.steps$interval/3600,merged.mean.steps$weekday, main="Mean steps for each interval during weekdays", type = "l", xlab = "Interval", ylab = "Mean number of steps")
+plot(merged.mean.steps$interval/3600,merged.mean.steps$weekend, main="Mean steps for each interval during weekends", type = "l", xlab = "Interval", ylab = "Mean number of steps")
+```
