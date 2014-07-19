@@ -134,7 +134,7 @@ format(as.POSIXct('0001-01-01 00:00:00') + intense.time, "%I:%M:%S %p")
 ```
 
 ```
-## [1] "08:35:00 "
+## [1] "08:35:00 AM"
 ```
 ## Imputing missing values
 ### Number of missing values:
